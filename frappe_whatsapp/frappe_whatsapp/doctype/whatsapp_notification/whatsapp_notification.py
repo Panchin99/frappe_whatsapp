@@ -82,21 +82,13 @@ class WhatsAppNotification(Document):
                 }
             }
 
-            # Pass parameter values
-            if self.fields:
-                parameters = []
-                for field in self.fields:
-                    parameters.append({
-                        "type": "text",
-                        "text": doc_data[field.field_name]
-                    })
+            if self.multi_link:
+                file_list = doc.get_catalog_file_list_to_share()
+                for filename in file_list:
+                    url = "https://athleticclassic.in/files/" + filename
+                    self.post_message(doc_data, template, data, filename, url)
 
-                data['template']["components"] = [{
-                    "type": "body",
-                    "parameters": parameters
-                }]
-
-            if self.attach_document_print:
+            elif self.attach_document_print:
                 # frappe.db.begin()
                 key = doc.get_document_share_key()  # noqa
                 frappe.db.commit()
@@ -123,6 +115,7 @@ class WhatsAppNotification(Document):
 
                 filename = f'{doc_data["name"]}.pdf'
                 url = f'{frappe.utils.get_url()}{link}&key={key}'
+                self.post_message(doc_data, template, data, filename, url)
 
             elif self.custom_attachment:
                 filename = self.file_name
@@ -130,20 +123,39 @@ class WhatsAppNotification(Document):
                     url = f'{self.attach}'
                 else:
                     url = f'{frappe.utils.get_url()}{self.attach}'
+                self.post_message(doc_data, template, data, filename, url)
+            
+            
+                    
 
-            if template.header_type == 'DOCUMENT':
-                data['template']['components'].append({
-                    "type": "header",
-                    "parameters": [{
-                        "type": "document",
-                        "document": {
-                            "link": url,
-                            "filename": filename
-                        }
-                    }]
-                })
+    def post_message(self, doc_data, template, data, filename, url):
+        data_copy = data.copy()  # Create a copy of the data for each link
+        data_copy['template']['components'] = []  # Create a new empty list for each iteration
+                     # Pass parameter values
+        if self.fields:
+            parameters = []
+            for field in self.fields:
+                parameters.append({
+                                "type": "text",
+                                "text": doc_data[field.field_name]
+                            })
 
-            self.notify(data)
+            data['template']["components"] = [{
+                            "type": "body",
+                            "parameters": parameters
+                        }]
+        if template.header_type == 'DOCUMENT':
+            data_copy['template']['components'].append({
+                            "type": "header",
+                            "parameters": [{
+                                "type": "document",
+                                "document": {
+                                    "link": url,
+                                    "filename": filename
+                                }
+                            }]
+                        })
+        self.notify(data_copy)
 
     def notify(self, data):
         """Notify."""
